@@ -2,6 +2,7 @@ package streams
 
 import (
 	"errors"
+	"maps"
 	"net/url"
 	"sync"
 	"time"
@@ -22,9 +23,11 @@ func Init() {
 
 	log = app.GetLogger("streams")
 
+	streamsMu.Lock()
 	for name, item := range cfg.Streams {
 		streams[name] = NewStream(item)
 	}
+	streamsMu.Unlock()
 
 	api.HandleFunc("api/streams", apiStreams)
 	api.HandleFunc("api/streams.dot", apiStreamsDOT)
@@ -153,6 +156,14 @@ func Delete(name string) {
 	streamsMu.Lock()
 	defer streamsMu.Unlock()
 	delete(streams, name)
+}
+
+// getAll returns a shallow copy of the streams map, so callers can range
+// over it or JSON-encode it without holding streamsMu.
+func getAll() map[string]*Stream {
+	streamsMu.Lock()
+	defer streamsMu.Unlock()
+	return maps.Clone(streams)
 }
 
 func GetAllNames() []string {
