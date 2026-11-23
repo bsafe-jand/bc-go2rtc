@@ -13,7 +13,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -260,14 +259,14 @@ func middlewareCORS(next http.Handler) http.Handler {
 	})
 }
 
-var mu sync.Mutex
-
 func apiHandler(w http.ResponseWriter, r *http.Request) {
-	mu.Lock()
-	app.Info["host"] = r.Host
-	mu.Unlock()
+	// Encode a per-request copy. The shared app.Info map must not be
+	// iterated by encoding/json while another request or module writes it.
+	// https://github.com/AlexxIT/go2rtc/issues/2443
+	info := app.GetInfo()
+	info["host"] = r.Host
 
-	ResponseJSON(w, app.Info)
+	ResponseJSON(w, info)
 }
 
 func exitHandler(w http.ResponseWriter, r *http.Request) {

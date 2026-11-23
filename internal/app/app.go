@@ -14,7 +14,10 @@ var (
 	Modules    []string
 	UserAgent  string
 	ConfigPath string
-	Info       = make(map[string]any)
+
+	// Info is served by GET /api. Write it only with SetInfo and read it with
+	// GetInfo; direct access races with concurrent API requests.
+	Info = make(map[string]any)
 )
 
 const usage = `Usage of go2rtc:
@@ -64,8 +67,8 @@ func Init() {
 
 	UserAgent = "go2rtc/" + Version
 
-	Info["version"] = Version
-	Info["revision"] = revision
+	SetInfo("version", Version)
+	SetInfo("revision", revision)
 
 	initConfig(config)
 	initLogger()

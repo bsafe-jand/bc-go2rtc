@@ -90,7 +90,7 @@ func initConfig(confs flagConfig) {
 				ConfigPath = filepath.Join(cwd, ConfigPath)
 			}
 		}
-		Info["config_path"] = ConfigPath
+		SetInfo("config_path", ConfigPath)
 	}
 }
 
