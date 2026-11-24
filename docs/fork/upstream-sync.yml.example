@@ -1,0 +1,72 @@
+# Copy to .github/workflows/upstream-sync.yml in a reviewed PR to enable.
+# Opens a PR into develop that merges the latest AlexxIT/go2rtc release tag.
+# It only pushes a branch and opens a PR, using the default GITHUB_TOKEN.
+name: Upstream release sync
+
+on:
+  schedule:
+    - cron: '0 22 * * 0' # weekly
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: develop
+          fetch-depth: 0
+
+      - name: Find latest upstream release
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh api repos/AlexxIT/go2rtc/releases/latest --jq .tag_name)
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Merge release into a sync branch
+        id: merge
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          git remote add upstream https://github.com/AlexxIT/go2rtc
+          git fetch upstream "refs/tags/$TAG:refs/tags/$TAG" --no-tags
+          if git merge-base --is-ancestor "$TAG" HEAD; then
+            echo "develop already contains $TAG"
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          branch="sync/upstream-$TAG"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+            echo "$branch already exists"
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git merge --no-ff --no-edit -m "Merge upstream release $TAG into develop" "$TAG"
+          git push origin "$branch"
+          echo "needed=true" >> "$GITHUB_OUTPUT"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+
+      - name: Open sync PR
+        if: steps.merge.outputs.needed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+          BRANCH: ${{ steps.merge.outputs.branch }}
+        run: |
+          printf 'Merges upstream release %s into develop.\n\nRelease notes: https://github.com/AlexxIT/go2rtc/releases/tag/%s\n\nChecklist:\n- [ ] Fork locking (docs/FORK.md) still in place, or replaced by an upstream fix\n- [ ] go test ./internal/... ./pkg/...\n- [ ] go test -race -run Concurrent ./internal/api/ ./internal/app/ ./internal/streams/\n' "$TAG" "$TAG" > body.md
+          gh pr create --base develop --head "$BRANCH" --title "Sync upstream $TAG" --body-file body.md

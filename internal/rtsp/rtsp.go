@@ -31,7 +31,7 @@ func Init() {
 	conf.Mod.DefaultQuery = "video&audio"
 
 	app.LoadConfig(&conf)
-	app.Info["rtsp"] = conf.Mod
+	app.SetInfo("rtsp", conf.Mod)
 
 	log = app.GetLogger("rtsp")
 
