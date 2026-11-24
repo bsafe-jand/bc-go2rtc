@@ -36,3 +36,11 @@ drop the fork change.
 `docs/fork/upstream-sync.yml.example` is an optional workflow that opens such a
 sync PR. To enable it, copy it to `.github/workflows/`. It only pushes a branch and
 opens a PR.
+
+## CI
+
+- Workflows do not publish container images or deploy pages. `build.yml` builds
+  binaries and keeps them as workflow artifacts only.
+- Third-party actions are pinned to full commit SHAs, with the version tag in a
+  trailing comment. Update a pin by resolving the new tag to its commit SHA.
+- `GITHUB_TOKEN` defaults to `contents: read`. Jobs request more only where needed.
